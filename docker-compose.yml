@@ -1,0 +1,79 @@
+version: "3"
+services:
+  database:
+    image: mariadb
+    restart: always
+    ports: 
+      - "9091:3306"
+    environment:
+      TZ: "America/Mexico_City"
+      MARIADB_ROOT_PASSWORD: Y8ge@1@TgvaHEy2
+      MARIADB_DATABASE: spuky
+      MARIADB_USER: spuky
+      MARIADB_PASSWORD: rZ4amrChJR1X
+    volumes:
+      - spuky_database:/var/lib/mysql
+      - ./mysql/conf.d:/etc/mysql/conf.d
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  uvicorn:  
+    depends_on:
+      - database
+    image: python:3.9.16-slim-buster
+    restart: always
+    command: >
+      bash -c 'apt-get update -y && 
+      apt-get install -y --no-install-recommends curl gcc g++ gnupg unixodbc-dev &&
+      apt-get install default-libmysqlclient-dev build-essential -y &&
+      cd /code && 
+      pip install --no-cache-dir -r /code/requirements.txt && 
+      alembic upgrade head &&
+      python3 init_admin.py &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8080 --ssl-keyfile /code/ssl/localhost.key --ssl-certfile /code/ssl/localhost.crt --log-config log.ini'
+    ports:
+      - "8091:8080"
+    environment:
+      TZ: "America/Mexico_City"
+      DATABASE_USER: spuky
+      DATABASE_PASSWORD: rZ4amrChJR1X
+      DATABASE_HOSTNAME: database
+      DATABASE_PORT: 3306
+      DATABASE_NAME: spuky
+      # openssl rand -hex 32
+      secret: 83482c15fef2653c60ecb607bbf89824ca77dc82a697b10c79e0ba61444c3b93
+      # For Production left values in blank and desactivate documentation
+      openapi_url: /openapi.json
+      docs_url: /docs
+      redoc_url: /redoc
+      APP_ADMIN_USER: 'admin@spuky.com'
+      APP_ADMIN_PASS: 'Pc@hp^pDHgKB8q1'
+    volumes:
+      - ./requirements.txt:/code/requirements.txt
+      - ./app:/code/app
+      - ./middleware:/code/middleware
+      - ./migrations:/code/migrations
+      - ./alembic.ini:/code/alembic.ini
+      - ./ssl:/code/ssl
+      - ./log.ini:/code/log.ini
+      - ./log_app:/code/log_app
+      - ./init_admin.py:/code/init_admin.py
+      - ./create_admin.py:/code/create_admin.py
+      - uvicorn_logs:/code/logs/
+      - app_logs:/code/log_app/
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+
+volumes:
+  spuky_database: {}
+  uvicorn_logs: {}
+  app_logs: {}
+
+networks:
+  default:
+    driver: bridge
